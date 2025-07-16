@@ -21,6 +21,10 @@ const Index = () => {
     setCurrentView('dashboard');
   };
 
+  const handleLogout = () => {
+    setCurrentView('login');
+  };
+
   switch (currentView) {
     case 'login':
       return <LoginPage onLogin={handleLogin} />;
@@ -29,13 +33,14 @@ const Index = () => {
       return (
         <AttendanceDashboard
           onViewReports={handleViewReports}
+          onLogout={handleLogout}
           selectedDate={selectedDate}
           onDateChange={setSelectedDate}
         />
       );
     
     case 'reports':
-      return <ReportsPage onBack={handleBackToDashboard} />;
+      return <ReportsPage onBack={handleBackToDashboard} onLogout={handleLogout} />;
     
     default:
       return <LoginPage onLogin={handleLogin} />;

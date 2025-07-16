@@ -18,12 +18,14 @@ import {
 
 interface AttendanceDashboardProps {
   onViewReports: () => void;
+  onLogout: () => void;
   selectedDate: Date;
   onDateChange: (date: Date) => void;
 }
 
 export const AttendanceDashboard = ({ 
   onViewReports, 
+  onLogout,
   selectedDate, 
   onDateChange 
 }: AttendanceDashboardProps) => {
@@ -98,6 +100,13 @@ export const AttendanceDashboard = ({
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                onClick={onLogout}
+                variant="secondary"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+              >
+                Logout
+              </Button>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-white" />
                 <input

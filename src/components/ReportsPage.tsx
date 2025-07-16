@@ -6,9 +6,10 @@ import { getStudents, getAttendanceStats, getAttendanceData } from "@/lib/attend
 
 interface ReportsPageProps {
   onBack: () => void;
+  onLogout: () => void;
 }
 
-export const ReportsPage = ({ onBack }: ReportsPageProps) => {
+export const ReportsPage = ({ onBack, onLogout }: ReportsPageProps) => {
   const students = getStudents();
   const stats = getAttendanceStats();
   const attendanceData = getAttendanceData();
@@ -36,24 +37,33 @@ export const ReportsPage = ({ onBack }: ReportsPageProps) => {
       {/* Header */}
       <div className="bg-gradient-to-r from-primary to-accent shadow-medium">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex items-center gap-4">
+              <Button
+                onClick={onBack}
+                variant="secondary"
+                size="sm"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-white">
+                  Attendance Reports
+                </h1>
+                <p className="text-primary-light mt-1">
+                  Overview and analytics
+                </p>
+              </div>
+            </div>
             <Button
-              onClick={onBack}
+              onClick={onLogout}
               variant="secondary"
-              size="sm"
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
+              Logout
             </Button>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white">
-                Attendance Reports
-              </h1>
-              <p className="text-primary-light mt-1">
-                Overview and analytics
-              </p>
-            </div>
           </div>
         </div>
       </div>
