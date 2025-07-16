@@ -12,24 +12,52 @@ export interface AttendanceRecord {
   };
 }
 
-export const STUDENTS: Student[] = [
+const DEFAULT_STUDENTS: Student[] = [
   { id: '1', rollNo: '001', name: 'Alice Johnson' },
   { id: '2', rollNo: '002', name: 'Bob Smith' },
   { id: '3', rollNo: '003', name: 'Charlie Brown' },
   { id: '4', rollNo: '004', name: 'Diana Ross' },
   { id: '5', rollNo: '005', name: 'Edward Wilson' },
-  { id: '6', rollNo: '006', name: 'Fiona Davis' },
-  { id: '7', rollNo: '007', name: 'George Miller' },
-  { id: '8', rollNo: '008', name: 'Hannah Taylor' },
-  { id: '9', rollNo: '009', name: 'Ivan Rodriguez' },
-  { id: '10', rollNo: '010', name: 'Julia Martinez' },
 ];
 
-const STORAGE_KEY = 'school-attendance-data';
+const STUDENTS_STORAGE_KEY = 'school-students-data';
+
+const ATTENDANCE_STORAGE_KEY = 'school-attendance-data';
+
+export const getStudents = (): Student[] => {
+  try {
+    const data = localStorage.getItem(STUDENTS_STORAGE_KEY);
+    return data ? JSON.parse(data) : DEFAULT_STUDENTS;
+  } catch (error) {
+    console.error('Error reading students data:', error);
+    return DEFAULT_STUDENTS;
+  }
+};
+
+export const saveStudents = (students: Student[]): void => {
+  try {
+    localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(students));
+  } catch (error) {
+    console.error('Error saving students data:', error);
+  }
+};
+
+export const addStudent = (name: string, rollNo: string): Student => {
+  const students = getStudents();
+  const newStudent: Student = {
+    id: Date.now().toString(),
+    rollNo,
+    name
+  };
+  
+  const updatedStudents = [...students, newStudent];
+  saveStudents(updatedStudents);
+  return newStudent;
+};
 
 export const getAttendanceData = (): AttendanceRecord => {
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
+    const data = localStorage.getItem(ATTENDANCE_STORAGE_KEY);
     return data ? JSON.parse(data) : {};
   } catch (error) {
     console.error('Error reading attendance data:', error);
@@ -39,7 +67,7 @@ export const getAttendanceData = (): AttendanceRecord => {
 
 export const saveAttendanceData = (data: AttendanceRecord): void => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(ATTENDANCE_STORAGE_KEY, JSON.stringify(data));
   } catch (error) {
     console.error('Error saving attendance data:', error);
   }
@@ -65,9 +93,10 @@ export const getAttendanceForDate = (date: string): { [studentId: string]: 'Pres
 
 export const getAttendanceStats = (): { [studentId: string]: { present: number; total: number; percentage: number } } => {
   const data = getAttendanceData();
+  const students = getStudents();
   const stats: { [studentId: string]: { present: number; total: number; percentage: number } } = {};
   
-  STUDENTS.forEach(student => {
+  students.forEach(student => {
     stats[student.id] = { present: 0, total: 0, percentage: 0 };
   });
 

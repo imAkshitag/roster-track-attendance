@@ -2,13 +2,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, TrendingUp, Users, Calendar } from "lucide-react";
-import { STUDENTS, getAttendanceStats, getAttendanceData } from "@/lib/attendance";
+import { getStudents, getAttendanceStats, getAttendanceData } from "@/lib/attendance";
 
 interface ReportsPageProps {
   onBack: () => void;
 }
 
 export const ReportsPage = ({ onBack }: ReportsPageProps) => {
+  const students = getStudents();
   const stats = getAttendanceStats();
   const attendanceData = getAttendanceData();
   const totalDays = Object.keys(attendanceData).length;
@@ -26,9 +27,9 @@ export const ReportsPage = ({ onBack }: ReportsPageProps) => {
     return "Poor";
   };
 
-  const averageAttendance = STUDENTS.reduce((acc, student) => 
+  const averageAttendance = students.reduce((acc, student) => 
     acc + (stats[student.id]?.percentage || 0), 0
-  ) / STUDENTS.length;
+  ) / students.length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -95,7 +96,7 @@ export const ReportsPage = ({ onBack }: ReportsPageProps) => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Students Tracked</p>
-                  <p className="text-3xl font-bold text-foreground">{STUDENTS.length}</p>
+                  <p className="text-3xl font-bold text-foreground">{students.length}</p>
                 </div>
                 <div className="w-12 h-12 bg-accent-light rounded-full flex items-center justify-center">
                   <Users className="w-6 h-6 text-accent" />
@@ -122,7 +123,7 @@ export const ReportsPage = ({ onBack }: ReportsPageProps) => {
 
             {/* Table Body */}
             <div className="divide-y divide-border">
-              {STUDENTS.map((student) => {
+              {students.map((student) => {
                 const studentStats = stats[student.id] || { present: 0, total: 0, percentage: 0 };
                 const performance = getPerformanceText(studentStats.percentage);
                 

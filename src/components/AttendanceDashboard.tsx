@@ -1,11 +1,15 @@
 import { useState, useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Calendar } from "lucide-react";
 import { 
-  STUDENTS, 
+  getStudents, 
+  addStudent,
   formatDate, 
   formatDisplayDate, 
   getAttendanceForDate, 
@@ -24,10 +28,15 @@ export const AttendanceDashboard = ({
   onDateChange 
 }: AttendanceDashboardProps) => {
   const [attendance, setAttendance] = useState<{ [key: string]: 'Present' | 'Absent' }>({});
+  const [students, setStudents] = useState(getStudents());
+  const [newStudentName, setNewStudentName] = useState('');
+  const [newStudentRollNo, setNewStudentRollNo] = useState('');
+  const { toast } = useToast();
   const dateStr = formatDate(selectedDate);
 
   useEffect(() => {
     setAttendance(getAttendanceForDate(dateStr));
+    setStudents(getStudents());
   }, [dateStr]);
 
   const handleAttendanceToggle = (studentId: string, isPresent: boolean) => {
@@ -37,6 +46,38 @@ export const AttendanceDashboard = ({
       ...prev,
       [studentId]: status
     }));
+  };
+
+  const handleAddStudent = () => {
+    if (!newStudentName.trim() || !newStudentRollNo.trim()) {
+      toast({
+        title: "Error",
+        description: "Please fill in both student name and roll number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if roll number already exists
+    const existingStudent = students.find(student => student.rollNo === newStudentRollNo.trim());
+    if (existingStudent) {
+      toast({
+        title: "Error",
+        description: "A student with this roll number already exists.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newStudent = addStudent(newStudentName.trim(), newStudentRollNo.trim());
+    setStudents(prev => [...prev, newStudent]);
+    setNewStudentName('');
+    setNewStudentRollNo('');
+    
+    toast({
+      title: "Success",
+      description: "Student added successfully!",
+    });
   };
 
   const presentCount = Object.values(attendance).filter(status => status === 'Present').length;
@@ -86,10 +127,10 @@ export const AttendanceDashboard = ({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Students</p>
-                  <p className="text-3xl font-bold text-foreground">{STUDENTS.length}</p>
+                  <p className="text-3xl font-bold text-foreground">{students.length}</p>
                 </div>
                 <div className="w-12 h-12 bg-primary-light rounded-full flex items-center justify-center">
-                  <span className="text-primary font-bold text-lg">{STUDENTS.length}</span>
+                  <span className="text-primary font-bold text-lg">{students.length}</span>
                 </div>
               </div>
             </CardContent>
@@ -128,6 +169,42 @@ export const AttendanceDashboard = ({
           </Card>
         </div>
 
+        {/* Add Student Form */}
+        <Card className="bg-card shadow-soft mb-6">
+          <CardHeader className="bg-gradient-to-r from-muted to-muted/50">
+            <CardTitle className="text-xl font-bold">Add New Student</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="studentName">Student Name</Label>
+                <Input
+                  id="studentName"
+                  type="text"
+                  placeholder="Enter student name"
+                  value={newStudentName}
+                  onChange={(e) => setNewStudentName(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="rollNumber">Roll Number</Label>
+                <Input
+                  id="rollNumber"
+                  type="text"
+                  placeholder="Enter roll number"
+                  value={newStudentRollNo}
+                  onChange={(e) => setNewStudentRollNo(e.target.value)}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button onClick={handleAddStudent} className="w-full">
+                  Add Student
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Student List */}
         <Card className="bg-card shadow-soft">
           <CardHeader className="bg-gradient-to-r from-muted to-muted/50">
@@ -135,7 +212,7 @@ export const AttendanceDashboard = ({
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-border">
-              {STUDENTS.map((student) => {
+              {students.map((student) => {
                 const isPresent = attendance[student.id] === 'Present';
                 const isMarked = student.id in attendance;
                 
