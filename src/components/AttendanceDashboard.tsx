@@ -35,11 +35,53 @@ export const AttendanceDashboard = ({
   const [newStudentRollNo, setNewStudentRollNo] = useState('');
   const { toast } = useToast();
   const dateStr = formatDate(selectedDate);
+  const [sortOption, setSortOption] = useState<'rollNo' | 'name'>('rollNo');
 
   useEffect(() => {
     setAttendance(getAttendanceForDate(dateStr));
     setStudents(getStudents());
   }, [dateStr]);
+
+  // Sort students based on sortOption
+  const sortedStudents = [...students].sort((a, b) => {
+    if (sortOption === 'rollNo') {
+      return a.rollNo.localeCompare(b.rollNo, undefined, { numeric: true });
+    } else {
+      return a.name.localeCompare(b.name);
+    }
+  });
+
+  // Prevent submitting attendance for past dates
+  const isPastDate = selectedDate < new Date(new Date().toDateString());
+
+  // Check if attendance for today is already marked
+  const todayStr = formatDate(new Date());
+  const isToday = dateStr === todayStr;
+  const attendanceMarkedToday = isToday && Object.keys(getAttendanceForDate(todayStr)).length > 0;
+
+  // Submit attendance handler
+  const handleSubmitAttendance = () => {
+    if (attendanceMarkedToday) {
+      toast({
+        title: 'Attendance already marked',
+        description: 'Attendance for today has already been submitted.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    // Mark all students: if not marked, set as Absent
+    students.forEach(student => {
+      if (!(student.id in attendance)) {
+        updateAttendance(student.id, dateStr, 'Absent');
+      }
+    });
+    setAttendance(getAttendanceForDate(dateStr));
+    toast({
+      title: 'Attendance Submitted',
+      description: `Attendance for ${formatDisplayDate(selectedDate)} has been saved.`,
+      variant: 'default',
+    });
+  };
 
   const handleAttendanceToggle = (studentId: string, isPresent: boolean) => {
     const status = isPresent ? 'Present' : 'Absent';
@@ -195,18 +237,37 @@ export const AttendanceDashboard = ({
                   onChange={(e) => setNewStudentName(e.target.value)}
                 />
               </div>
-              <div>
-                <Label htmlFor="rollNumber">Roll Number</Label>
-                <Input
-                  id="rollNumber"
-                  type="text"
-                  placeholder="Enter roll number"
-                  value={newStudentRollNo}
-                  onChange={(e) => setNewStudentRollNo(e.target.value)}
-                />
-              </div>
+              {/* Remove roll number input, auto-assign below */}
               <div className="flex items-end">
-                <Button onClick={handleAddStudent} className="w-full">
+                <Button onClick={() => {
+                  if (!newStudentName.trim()) {
+                    toast({
+                      title: 'Error',
+                      description: 'Please fill in the student name.',
+                      variant: 'destructive',
+                    });
+                    return;
+                  }
+                  // Auto-assign roll number as count+1, padded
+                  const nextRollNo = String(students.length + 1).padStart(3, '0');
+                  const existingStudent = students.find(student => student.name.toLowerCase() === newStudentName.trim().toLowerCase());
+                  if (existingStudent) {
+                    toast({
+                      title: 'Error',
+                      description: 'A student with this name already exists.',
+                      variant: 'destructive',
+                    });
+                    return;
+                  }
+                  const newStudent = addStudent(newStudentName.trim(), nextRollNo);
+                  setStudents(prev => [...prev, newStudent]);
+                  setNewStudentName('');
+                  toast({
+                    title: 'Success',
+                    description: `Student added successfully! Roll No: ${nextRollNo}`,
+                    variant: 'default',
+                  });
+                }} className="w-full">
                   Add Student
                 </Button>
               </div>
@@ -218,13 +279,25 @@ export const AttendanceDashboard = ({
         <Card className="bg-card shadow-soft">
           <CardHeader className="bg-gradient-to-r from-muted to-muted/50">
             <CardTitle className="text-xl font-bold">Student Attendance</CardTitle>
+            {/* Sorting Controls */}
+            <div className="mt-2 flex gap-2 items-center">
+              <Label htmlFor="sortOption">Sort by:</Label>
+              <select
+                id="sortOption"
+                value={sortOption}
+                onChange={e => setSortOption(e.target.value as 'rollNo' | 'name')}
+                className="border rounded px-2 py-1"
+              >
+                <option value="rollNo">Roll Number</option>
+                <option value="name">Name</option>
+              </select>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-border">
-              {students.map((student) => {
+              {sortedStudents.map((student) => {
                 const isPresent = attendance[student.id] === 'Present';
                 const isMarked = student.id in attendance;
-                
                 return (
                   <div
                     key={student.id}
@@ -243,7 +316,6 @@ export const AttendanceDashboard = ({
                         </p>
                       </div>
                     </div>
-                    
                     <div className="flex items-center gap-4">
                       {isMarked && (
                         <Badge 
@@ -253,7 +325,6 @@ export const AttendanceDashboard = ({
                           {isPresent ? 'Present' : 'Absent'}
                         </Badge>
                       )}
-                      
                       <div className="flex items-center gap-3">
                         <span className="text-sm text-muted-foreground">Absent</span>
                         <Switch
@@ -268,6 +339,17 @@ export const AttendanceDashboard = ({
                   </div>
                 );
               })}
+            </div>
+            {/* Submit Attendance Button */}
+            <div className="p-4 flex justify-end">
+              <Button
+                onClick={handleSubmitAttendance}
+                disabled={isPastDate || attendanceMarkedToday}
+                className="bg-primary text-white px-6"
+                title={isPastDate ? 'Cannot submit attendance for past dates' : attendanceMarkedToday ? 'Attendance already marked for today' : 'Submit today\'s attendance'}
+              >
+                Submit Attendance
+              </Button>
             </div>
           </CardContent>
         </Card>

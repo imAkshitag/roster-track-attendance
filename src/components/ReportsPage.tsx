@@ -3,6 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, TrendingUp, Users, Calendar } from "lucide-react";
 import { getStudents, getAttendanceStats, getAttendanceData } from "@/lib/attendance";
+import { ChartContainer } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { useState, useCallback } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ReportsPageProps {
   onBack: () => void;
@@ -13,7 +17,14 @@ export const ReportsPage = ({ onBack, onLogout }: ReportsPageProps) => {
   const students = getStudents();
   const stats = getAttendanceStats();
   const attendanceData = getAttendanceData();
-  const totalDays = Object.keys(attendanceData).length;
+  // Fix total days: only count days with at least one attendance record
+  const totalDays = Object.values(attendanceData).filter(dayData => Object.keys(dayData).length > 0).length;
+
+  // State for day details modal
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const selectedDayData = selectedDay ? attendanceData[selectedDay] : null;
+  const selectedDayPresent = selectedDayData ? Object.values(selectedDayData).filter(s => s === 'Present').length : 0;
+  const selectedDayTotal = selectedDayData ? Object.keys(selectedDayData).length : 0;
 
   const getPerformanceColor = (percentage: number) => {
     if (percentage >= 90) return "bg-success";
@@ -31,6 +42,33 @@ export const ReportsPage = ({ onBack, onLogout }: ReportsPageProps) => {
   const averageAttendance = students.reduce((acc, student) => 
     acc + (stats[student.id]?.percentage || 0), 0
   ) / students.length;
+
+  // Prepare data for daily attendance rate chart
+  const dailyAttendance = Object.entries(attendanceData).map(([date, dayData]) => {
+    const total = Object.keys(dayData).length;
+    const present = Object.values(dayData).filter((s) => s === "Present").length;
+    return {
+      date,
+      rate: total > 0 ? Math.round((present / total) * 100) : 0,
+      present,
+      total,
+    };
+  });
+
+  // Find best/worst attendance days
+  const bestDay = dailyAttendance.reduce((best, curr) => (curr.rate > (best?.rate ?? -1) ? curr : best), null);
+  const worstDay = dailyAttendance.reduce((worst, curr) => (curr.rate < (worst?.rate ?? 101) ? curr : worst), null);
+
+  // Find best/worst student
+  const bestStudent = students.reduce((best, curr) => (stats[curr.id]?.percentage > (stats[best?.id]?.percentage ?? -1) ? curr : best), null);
+  const worstStudent = students.reduce((worst, curr) => (stats[curr.id]?.percentage < (stats[worst?.id]?.percentage ?? 101) ? curr : worst), null);
+
+  // Handler for clicking a bar in the chart
+  const handleBarClick = useCallback((data: any) => {
+    if (data && data.activeLabel) {
+      setSelectedDay(data.activeLabel);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -112,6 +150,124 @@ export const ReportsPage = ({ onBack, onLogout }: ReportsPageProps) => {
                   <Users className="w-6 h-6 text-accent" />
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Attendance Trend Chart */}
+        <Card className="bg-card shadow-soft mb-8">
+          <CardHeader className="bg-gradient-to-r from-muted to-muted/50 flex flex-col md:flex-row md:items-center md:justify-between">
+            <CardTitle className="text-xl font-bold">Attendance Trend</CardTitle>
+            <div className="mt-2 md:mt-0 flex gap-2 items-center">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  // Open details for the most recent day with data
+                  const lastDay = dailyAttendance.length > 0 ? dailyAttendance[dailyAttendance.length - 1].date : null;
+                  if (lastDay) setSelectedDay(lastDay);
+                }}
+                disabled={dailyAttendance.length === 0}
+              >
+                See Details for Latest Day
+              </Button>
+              {/* Dropdown to pick a day */}
+              <select
+                className="border rounded px-2 py-1"
+                value={selectedDay || ''}
+                onChange={e => setSelectedDay(e.target.value || null)}
+              >
+                <option value="">Select Day</option>
+                {dailyAttendance.map(day => (
+                  <option key={day.date} value={day.date}>{day.date}</option>
+                ))}
+              </select>
+            </div>
+          </CardHeader>
+          <CardContent style={{ height: 300 }}>
+            <ChartContainer config={{}}>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={dailyAttendance} margin={{ left: 10, right: 10, top: 10, bottom: 10 }}
+                  onClick={handleBarClick}
+                >
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                  <Tooltip formatter={(value) => `${value}%`} />
+                  <Bar dataKey="rate" fill="#4ade80" name="Attendance %" />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+        {/* Day Details Dialog */}
+        <Dialog open={!!selectedDay} onOpenChange={open => !open && setSelectedDay(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Attendance Details for {selectedDay}</DialogTitle>
+            </DialogHeader>
+            {selectedDayData ? (
+              <div>
+                <div className="mb-2">Present: {selectedDayPresent} / {selectedDayTotal}</div>
+                <div className="divide-y divide-border">
+                  {Object.entries(selectedDayData).map(([studentId, status]) => {
+                    const student = students.find(s => s.id === studentId);
+                    return (
+                      <div key={studentId} className="flex justify-between py-2">
+                        <span>{student ? student.name : studentId}</span>
+                        <span className={status === 'Present' ? 'text-success' : 'text-destructive'}>{status}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : <div>No data for this day.</div>}
+          </DialogContent>
+        </Dialog>
+        {/* Best/Worst Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <Card className="bg-success-light">
+            <CardContent className="p-6">
+              <div className="font-bold text-success mb-2">Best Student</div>
+              {bestStudent ? (
+                <div>
+                  <span className="font-semibold">{bestStudent.name}</span> (Roll No: {bestStudent.rollNo})<br />
+                  Attendance: {stats[bestStudent.id]?.percentage ?? 0}%
+                </div>
+              ) : <span>No data</span>}
+            </CardContent>
+          </Card>
+          <Card className="bg-destructive-light">
+            <CardContent className="p-6">
+              <div className="font-bold text-destructive mb-2">Lowest Attendance Student</div>
+              {worstStudent ? (
+                <div>
+                  <span className="font-semibold">{worstStudent.name}</span> (Roll No: {worstStudent.rollNo})<br />
+                  Attendance: {stats[worstStudent.id]?.percentage ?? 0}%
+                </div>
+              ) : <span>No data</span>}
+            </CardContent>
+          </Card>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <Card className="bg-success-light">
+            <CardContent className="p-6">
+              <div className="font-bold text-success mb-2">Best Attendance Day</div>
+              {bestDay ? (
+                <div>
+                  <span className="font-semibold">{bestDay.date}</span><br />
+                  Attendance Rate: {bestDay.rate}% ({bestDay.present}/{bestDay.total} present)
+                </div>
+              ) : <span>No data</span>}
+            </CardContent>
+          </Card>
+          <Card className="bg-destructive-light">
+            <CardContent className="p-6">
+              <div className="font-bold text-destructive mb-2">Lowest Attendance Day</div>
+              {worstDay ? (
+                <div>
+                  <span className="font-semibold">{worstDay.date}</span><br />
+                  Attendance Rate: {worstDay.rate}% ({worstDay.present}/{worstDay.total} present)
+                </div>
+              ) : <span>No data</span>}
             </CardContent>
           </Card>
         </div>
